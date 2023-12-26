@@ -1,0 +1,104 @@
+---
+title: 'PRAC1 - Visualització de dades'
+author: "Autor: Eduard Barniol"
+date: "Desembre 2023"
+output:
+  html_document:
+    highlight: default
+    number_sections: yes
+    theme: cosmo
+    toc: yes
+    toc_depth: 2
+  word_document: default
+  pdf_document:
+    highlight: zenburn
+    toc: yes
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
+
+```{r message= FALSE, warning=FALSE}
+# Carreguem les llibreries necessàries per a l'anàlisi.
+library(ggplot2)
+library(dplyr)
+library(tidyr)
+library(ggplot2)
+library(data.table)
+library(openxlsx)
+library(MASS) 
+library(reshape2) 
+library(reshape) 
+
+setwd("C:/Users/eduba/Desktop/Visualització de dades")
+# Càrreguem les dades d'exportacions
+df1 <- read.csv("Trade_world_1.csv", header=TRUE)
+df2 <- read.csv("Trade_world_2.csv", header=TRUE)
+df3 <- read.csv("Trade_world_3.csv", header=TRUE)
+# Eliminem 1999 al estar duplicat en dues bases de dades.
+df3<-df3[df3$RefYear!=1999,]
+# Adjuntem les bases de dades
+df<-rbind(df1, df2, df3)
+df_total<-df[df$PartnerDesc=="World",]
+# Eliminem Hong Kong per la seva casuística.
+df_total<-df_total[df_total$ReporterISO!="HKG",]
+data_export <- melt(df_total, c("ReporterISO", "PartnerISO","RefYear"), "Fobvalue")
+data_final <-dcast(data_export , ReporterISO+PartnerISO ~ RefYear)
+write.xlsx(data_final, 'Gràfic1_carrera_paisos.xlsx')
+```
+
+```{r message= FALSE, warning=FALSE}
+# Gràfic 2:Mapa importància China
+# Dades de importacions per país.
+df_china<-read.csv("TradeData_12_26_2023_12_53_42.csv", header=TRUE, sep=",")
+df_china <- subset (df_china, select = c ( ReporterISO,PartnerISO, ReporterDesc, PartnerDesc, FlowCode, Cifvalue ))
+df_china_m <- df_china[df_china$FlowCode=="M",]
+df_china_m$Import <- df_china_m$Cifvalue
+df_china_m <- subset (df_china_m, select = c ( ReporterISO,PartnerISO, ReporterDesc, PartnerDesc, Import ))
+# Eliminem Xina i observacions que no representen països.
+df_china_m <-df_china_m [df_china_m$PartnerDesc!="World",]
+df_china_m <-df_china_m [df_china_m$ReporterDesc!="World",]
+df_china_m <-df_china_m [df_china_m$PartnerDesc!="Areas, nes",]
+df_china_m <-df_china_m [df_china_m$ReporterDesc!="Areas, nes",]
+df_china_m <-df_china_m [df_china_m$ReporterISO!="A79",]
+df_china_m <-df_china_m [df_china_m$PartnerISO!="A79",]
+df_china_m <-df_china_m [df_china_m$ReporterISO!="S19",]
+df_china_m <-df_china_m [df_china_m$PartnerISO!="S19",]
+df_china_m <-df_china_m [df_china_m$ReporterISO!="CHN",]
+library(dplyr)
+DT <- data.table(df_china_m)
+DT <- DT[order(ReporterISO, -Import)]
+DT <-DT[, id := seq_along(Import), by =  ReporterISO]
+DT <-DT[DT$PartnerISO=="CHN",]
+DT <-DT[DT$Import!=0,]
+DT <- na.omit(DT)
+
+```
+
+```{r message= FALSE, warning=FALSE}
+# Gràfic 3:Saldo de China.
+# Carregant les dades de Xina per 2022.
+df_china<-read.csv("China_trade_2022.csv", header=TRUE)
+df_china <- subset (df_china, select = c (Fobvalue, ReporterISO,PartnerISO, ReporterDesc, PartnerDesc, FlowCode, Cifvalue ))
+# Exportacions i importacions per país.
+df_china_x <- df_china[df_china$FlowCode=="X",]
+df_china_m <- df_china[df_china$FlowCode=="M",]
+df_china_x <- subset (df_china_x, select = c (Fobvalue, ReporterISO,PartnerISO, ReporterDesc, PartnerDesc ))
+df_china_m <- subset (df_china_m, select = c (Cifvalue, ReporterISO,PartnerISO, ReporterDesc, PartnerDesc ))
+df_china_m$Import <- df_china_m$Cifvalue
+df_china_x$Export <- df_china_x$Fobvalue
+df_merge_china<-merge(df_china_m, df_china_x , by =c("ReporterISO","PartnerISO","ReporterDesc","PartnerDesc"),all.x=T)
+df_merge_china <- subset (df_merge_china, select = c (ReporterISO,PartnerISO, ReporterDesc, PartnerDesc, Export, Import ))
+# Eliminem Xina i observacions que no representen països.
+df_merge_china<-df_merge_china[df_merge_china$PartnerISO!="A59",]
+df_merge_china<-df_merge_china[df_merge_china$PartnerISO!="A79",]
+df_merge_china<-df_merge_china[df_merge_china$PartnerISO!="S19",]
+df_merge_china<-df_merge_china[df_merge_china$PartnerISO!="W00",]
+df_merge_china<-df_merge_china[df_merge_china$PartnerDesc!="Areas, nes",]
+df_merge_china<-df_merge_china[df_merge_china$PartnerISO!="E19",]
+df_merge_china<-df_merge_china[df_merge_china$PartnerISO!="China",]
+# Saldo per país de Xina.
+df_merge_china$saldo<-df_merge_china$Export-df_merge_china$Import
+write.xlsx(df_merge_china, 'Gràfic3_saldo_2022.xlsx')
+```
